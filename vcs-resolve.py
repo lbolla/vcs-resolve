@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import abc
 import os
 import re
 from subprocess import check_call, check_output, CalledProcessError
@@ -58,15 +59,20 @@ class Git(Repo):
         return self.resolver.resolve(self.what)
 
 
-class Resolver:
+class Resolver(metaclass=abc.ABCMeta):
 
     def __init__(self, repo):
         self._repo = repo
 
+    @abc.abstractmethod
+    def resolve(self, what):
+        pass
+
 
 class GitHub(Resolver):
 
-    URL_FMT = 'https://github.com/{user}/{repo}/blob/{branch}/{path}'
+    URL_FMT = 'https://github.com/{user}/{repo}'
+    BLOB_FMT = '/blob/{branch}/{path}'
 
     @property
     def repo_path(self):
@@ -101,13 +107,52 @@ class GitHub(Resolver):
         return p
 
     def resolve(self, what):
+        url = self.URL_FMT.format(user=self.user, repo=self.repo)
+        p = self.get_path(what)
+        if p:
+            url += self.BLOB_FMT.format(branch=self._repo.branch, path=p)
+        return url
+
+
+class Kiln(Resolver):
+
+    URL_FMT = (
+        'https://{user}.kilnhg.com/Code/{repo}/Files/{path}'
+        '?rev={branch}'
+    )
+
+    @property
+    def user(self):
+        return self._repo.origin.netloc.split('@', 1)[0]
+
+    @property
+    def repo(self):
+        return self._repo.origin.path.lstrip('/')
+
+    @staticmethod
+    def _split_lines(p):
+        if ':' in p:
+            idx = p.index(':')
+            return p[:idx], p[idx:].replace(':', '#').replace(',', '-')
+        return p, ''
+
+    def get_path(self, what):
+        p = what[len(self._repo.toplevel):].lstrip('/')
+        return self._split_lines(p)
+
+    def resolve(self, what):
+        p, lines = self.get_path(what)
         return self.URL_FMT.format(
             user=self.user, repo=self.repo, branch=self._repo.branch,
-            path=self.get_path(what))
+            path=p) + lines
 
 
 def get_repo(what):
-    os.chdir(os.path.dirname(what))
+    if os.path.isdir(what):
+        what_dir = what
+    else:
+        what_dir = os.path.dirname(what)
+    os.chdir(what_dir)
     if Git.is_git():
         return Git(what)
     raise ValueError('Unknown repo: {}'.format(what))
@@ -119,6 +164,12 @@ def get_resolver_cls(origin):
 
     if 'github.com' in origin.path:
         return GitHub
+
+    if origin.scheme in ['kiln']:
+        return Kiln
+
+    if 'kilnhg.com' in origin.netloc:
+        return Kiln
 
     raise ValueError('Unknown resolver: {}'.format(origin))
 
@@ -138,8 +189,8 @@ def main():
     what = sys.argv[1]
     repo = get_repo(what)
     url = repo.resolve()
-    # xdg_open(url)
-    # save_x_clipboard(url)
+    xdg_open(url)
+    save_x_clipboard(url)
     print(url)
 
 
