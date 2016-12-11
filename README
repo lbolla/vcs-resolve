@@ -1,6 +1,15 @@
 Resolve files in VCS.
 
-* TODO
+No need to install. If you want, put `vcs-resolve.py` in your $PATH or symlink it from somewhere.
+Needs Python3.
 
-- tests
-- .el file
+Run as:
+
+    $> vcs-resolve <something or nothing>
+
+To use with Emacs, load `vcs-resolve.el`. Something like:
+
+    (use-package vcs-resolve
+     :commands (vcs-resolve-buffer
+                vcs-resolve-region)
+     :load-path "/home/lbolla/src/vcs-resolve/")
