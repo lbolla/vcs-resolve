@@ -2,36 +2,58 @@
 import abc
 import os
 import re
-from subprocess import check_call, check_output, CalledProcessError
+from subprocess import check_call, check_output, CalledProcessError, STDOUT
 import sys
 import tempfile
 from urllib.parse import urlparse
 
 
-class Repo:
-    pass
+class Repo(metaclass=abc.ABCMeta):
+
+    def __init__(self, what):
+        self.what = what
+        self.resolver = get_resolver_cls(self.origin)(self)
+
+    @property
+    @abc.abstractmethod
+    def origin(self):
+        return None
+
+    @staticmethod
+    @abc.abstractmethod
+    def is_repo():
+        return False
+
+    @property
+    @abc.abstractmethod
+    def toplevel(self):
+        return None
+
+    @property
+    @abc.abstractmethod
+    def branch(self):
+        return self._hg('branch')
+
+    def resolve(self):
+        return self.resolver.resolve(self.what)
 
 
 class Git(Repo):
 
     ORIGIN_RE = re.compile(r'^origin(.*)\(fetch\)$')
 
-    def __init__(self, what):
-        self.what = what
-        self.resolver = get_resolver_cls(self.origin)(self)
+    @staticmethod
+    def _git(cmd):
+        output = check_output(['git'] + cmd.split(), stderr=STDOUT)
+        return output.decode('utf-8').strip()
 
     @staticmethod
-    def is_git():
+    def is_repo():
         try:
             Git._git('status')
             return True
         except CalledProcessError:
-            pass
-
-    @staticmethod
-    def _git(cmd):
-        output = check_output(['git'] + cmd.split())
-        return output.decode('utf-8').strip()
+            return False
 
     @property
     def toplevel(self):
@@ -55,8 +77,41 @@ class Git(Repo):
                 return urlparse(path)
         raise ValueError('Origin not found')
 
-    def resolve(self):
-        return self.resolver.resolve(self.what)
+
+class Hg(Repo):
+
+    ORIGIN_RE = re.compile(r'^default = (.*)$')
+
+    @staticmethod
+    def _hg(cmd):
+        output = check_output(['hg'] + cmd.split())
+        return output.decode('utf-8').strip()
+
+    @staticmethod
+    def is_repo():
+        try:
+            Hg._hg('status')
+            return True
+        except CalledProcessError:
+            return False
+
+    @property
+    def origin(self):
+        output = self._hg('paths')
+        for line in output.splitlines():
+            m = self.ORIGIN_RE.match(line)
+            if m is not None:
+                path = m.groups()[0].strip()
+                return urlparse(path)
+        raise ValueError('Origin not found')
+
+    @property
+    def toplevel(self):
+        return self._hg('root')
+
+    @property
+    def branch(self):
+        return self._hg('branch')
 
 
 class Resolver(metaclass=abc.ABCMeta):
@@ -153,8 +208,13 @@ def get_repo(what):
     else:
         what_dir = os.path.dirname(what)
     os.chdir(what_dir)
-    if Git.is_git():
+
+    if Git.is_repo():
         return Git(what)
+
+    if Hg.is_repo():
+        return Hg(what)
+
     raise ValueError('Unknown repo: {}'.format(what))
 
 
@@ -186,11 +246,11 @@ def save_x_clipboard(stuff):
 
 
 def main():
-    what = sys.argv[1]
+    what = sys.argv[1] if len(sys.argv) > 1 else '.'
     repo = get_repo(what)
     url = repo.resolve()
-    xdg_open(url)
-    save_x_clipboard(url)
+    # xdg_open(url)
+    # save_x_clipboard(url)
     print(url)
 
 
