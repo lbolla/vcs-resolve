@@ -3,7 +3,4 @@ Resolve files in VCS.
 * TODO
 
 - tests
-- kiln, bitbucket
-- git submodules (e.g. vr.server)
-- hg
 - .el file

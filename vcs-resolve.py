@@ -12,7 +12,23 @@ class Repo(metaclass=abc.ABCMeta):
 
     def __init__(self, what):
         self.what = what
-        self.resolver = get_resolver_cls(self.origin)(self)
+        self.resolver = Resolver.get(self)
+
+    @staticmethod
+    def get(what):
+        if os.path.isdir(what):
+            what_dir = what
+        else:
+            what_dir = os.path.dirname(what)
+        os.chdir(what_dir)
+
+        if Git.is_repo():
+            return Git(what)
+
+        if Hg.is_repo():
+            return Hg(what)
+
+        raise ValueError('Unknown repo: {}'.format(what))
 
     @property
     @abc.abstractmethod
@@ -32,7 +48,7 @@ class Repo(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def branch(self):
-        return self._hg('branch')
+        return None
 
     def resolve(self):
         return self.resolver.resolve(self.what)
@@ -113,21 +129,56 @@ class Hg(Repo):
     def branch(self):
         return self._hg('branch')
 
+    @property
+    def changeset(self):
+        return self._hg('id')
+
 
 class Resolver(metaclass=abc.ABCMeta):
 
     def __init__(self, repo):
         self._repo = repo
 
+    @staticmethod
+    @abc.abstractmethod
+    def can_resolve(origin):
+        return False
+
     @abc.abstractmethod
     def resolve(self, what):
         pass
+
+    @staticmethod
+    def get(repo):
+        origin = repo.origin
+        for cls in [GitHub, BitBucket, Kiln]:
+            if cls.can_resolve(origin):
+                return cls(repo)
+
+        raise ValueError('Unknown resolver: {}'.format(origin))
 
 
 class GitHub(Resolver):
 
     URL_FMT = 'https://github.com/{user}/{repo}'
     BLOB_FMT = '/blob/{branch}/{path}'
+
+    @staticmethod
+    def can_resolve(origin):
+        if origin.scheme in ['github', 'gh']:
+            return True
+
+        if 'github.com' in origin.path:
+            return True
+
+        return False
+
+    def resolve(self, what):
+        url = self.URL_FMT.format(user=self.user, repo=self.repo)
+        p = self.get_path(what)
+        if p:
+            url += self.BLOB_FMT.format(branch=self._repo.branch, path=p)
+        return url
 
     @property
     def repo_path(self):
@@ -161,12 +212,55 @@ class GitHub(Resolver):
         p = self._adjust_lines(p)
         return p
 
+
+class BitBucket(Resolver):
+
+    URL_FMT = 'https://bitbucket.org/{user}/{repo}'
+    BLOB_FMT = '/src/{changeset}/{path}?at={branch}'
+
+    @staticmethod
+    def can_resolve(origin):
+        if origin.scheme in ['bitbucket', 'bb']:
+            return True
+
+        if 'bitbucket.org' in origin.netloc:
+            return True
+
+        return False
+
     def resolve(self, what):
         url = self.URL_FMT.format(user=self.user, repo=self.repo)
-        p = self.get_path(what)
+        p, lines = self.get_path(what)
         if p:
-            url += self.BLOB_FMT.format(branch=self._repo.branch, path=p)
-        return url
+            url += self.BLOB_FMT.format(
+                changeset=self._repo.changeset,
+                branch=self._repo.branch, path=p)
+        return url + lines
+
+    @property
+    def repo_path(self):
+        return self._repo.origin.path
+
+    @property
+    def user(self):
+        return self.repo_path.strip('/').split('/')[0]
+
+    @property
+    def repo(self):
+        return self.repo_path.strip('/').split('/')[1]
+
+    @staticmethod
+    def _split_lines(p):
+        if ':' in p:
+            idx = p.index(':')
+            fname = os.path.basename(p[:idx])
+            return p[:idx], p[idx:].replace(
+                ':', '#' + fname + '-').replace(',', ':')
+        return p, ''
+
+    def get_path(self, what):
+        p = what[len(self._repo.toplevel):].lstrip('/')
+        return self._split_lines(p)
 
 
 class Kiln(Resolver):
@@ -175,6 +269,16 @@ class Kiln(Resolver):
         'https://{user}.kilnhg.com/Code/{repo}/Files/{path}'
         '?rev={branch}'
     )
+
+    @staticmethod
+    def can_resolve(origin):
+        if origin.scheme in ['kiln']:
+            return True
+
+        if 'kilnhg.com' in origin.netloc:
+            return True
+
+        return False
 
     @property
     def user(self):
@@ -202,38 +306,6 @@ class Kiln(Resolver):
             path=p) + lines
 
 
-def get_repo(what):
-    if os.path.isdir(what):
-        what_dir = what
-    else:
-        what_dir = os.path.dirname(what)
-    os.chdir(what_dir)
-
-    if Git.is_repo():
-        return Git(what)
-
-    if Hg.is_repo():
-        return Hg(what)
-
-    raise ValueError('Unknown repo: {}'.format(what))
-
-
-def get_resolver_cls(origin):
-    if origin.scheme in ['github', 'gh']:
-        return GitHub
-
-    if 'github.com' in origin.path:
-        return GitHub
-
-    if origin.scheme in ['kiln']:
-        return Kiln
-
-    if 'kilnhg.com' in origin.netloc:
-        return Kiln
-
-    raise ValueError('Unknown resolver: {}'.format(origin))
-
-
 def xdg_open(url):
     check_call(['xdg-open', url])
 
@@ -247,10 +319,10 @@ def save_x_clipboard(stuff):
 
 def main():
     what = sys.argv[1] if len(sys.argv) > 1 else '.'
-    repo = get_repo(what)
+    repo = Repo.get(what)
     url = repo.resolve()
-    # xdg_open(url)
-    # save_x_clipboard(url)
+    xdg_open(url)
+    save_x_clipboard(url)
     print(url)
 
 
