@@ -4,7 +4,7 @@
 
 ;;; Code:
 
-(defcustom vcs-resolve-exe "vcs-resolve" "vcs-resolve executable." :group 'local)
+(defcustom vcs-resolve-exe "vcs-resolve" "Executable for vcs-resolve." :group 'local)
 
 (defun vcs-resolve-buffer ()
   "Run `vcs-resolve` on current buffer."
