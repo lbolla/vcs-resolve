@@ -168,6 +168,9 @@ class GitHub(Resolver):
         if origin.scheme in ['github', 'gh']:
             return True
 
+        if 'github.com' in origin.netloc:
+            return True
+
         if 'github.com' in origin.path:
             return True
 
@@ -191,11 +194,11 @@ class GitHub(Resolver):
 
     @property
     def user(self):
-        return self.repo_path.split('/')[0]
+        return self.repo_path.strip('/').split('/')[0]
 
     @property
     def repo(self):
-        return self.repo_path.split('/')[1]
+        return self.repo_path.strip('/').split('/')[1]
 
     @staticmethod
     def _adjust_lines(p):
@@ -224,6 +227,9 @@ class BitBucket(Resolver):
             return True
 
         if 'bitbucket.org' in origin.netloc:
+            return True
+
+        if 'bitbucket.org' in origin.path:
             return True
 
         return False
@@ -322,7 +328,8 @@ def main():
     repo = Repo.get(what)
     url = repo.resolve()
     xdg_open(url)
-    save_x_clipboard(url)
+    # TODO This hangs Emacs
+    # save_x_clipboard(url)
     print(url)
 
 
