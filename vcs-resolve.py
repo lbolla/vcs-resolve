@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 
 class Repo(metaclass=abc.ABCMeta):
 
+    COMMIT_RE = re.compile(r'[a-z0-9]{16}')
+
     def __init__(self, what):
         self.what = what
         self.resolver = Resolver.get(self)
@@ -19,7 +21,8 @@ class Repo(metaclass=abc.ABCMeta):
         if os.path.isdir(what):
             what_dir = what
         else:
-            what_dir = os.path.dirname(what)
+            what_dir = os.path.dirname(what) or '.'
+
         os.chdir(what_dir)
 
         if Git.is_repo():
@@ -49,6 +52,17 @@ class Repo(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def branch(self):
         return None
+
+    def is_commit(self, what):
+        return self.COMMIT_RE.match(what) is not None
+
+    def relpath(self, what):
+        if what.startswith(self.toplevel):
+            what = what[len(self.toplevel):]
+        what = what.lstrip('/')
+        if what == '.':
+            what = ''
+        return what
 
     def resolve(self):
         return self.resolver.resolve(self.what)
@@ -100,7 +114,7 @@ class Hg(Repo):
 
     @staticmethod
     def _hg(cmd):
-        output = check_output(['hg'] + cmd.split())
+        output = check_output(['hg'] + cmd.split(), stderr=STDOUT)
         return output.decode('utf-8').strip()
 
     @staticmethod
@@ -162,6 +176,7 @@ class GitHub(Resolver):
 
     URL_FMT = 'https://github.com/{user}/{repo}'
     BLOB_FMT = '/blob/{branch}/{path}'
+    COMMIT_FMT = '/commit/{commit}'
 
     @staticmethod
     def can_resolve(origin):
@@ -178,8 +193,10 @@ class GitHub(Resolver):
 
     def resolve(self, what):
         url = self.URL_FMT.format(user=self.user, repo=self.repo)
-        p = self.get_path(what)
-        if p:
+        p, is_commit = self.get_path(what)
+        if is_commit:
+            url += self.COMMIT_FMT.format(commit=p)
+        elif p:
             url += self.BLOB_FMT.format(branch=self._repo.branch, path=p)
         return url
 
@@ -211,15 +228,21 @@ class GitHub(Resolver):
         return p
 
     def get_path(self, what):
-        p = what[len(self._repo.toplevel):].lstrip('/')
+        if self._repo.is_commit(what):
+            p = what
+            is_commit = True
+        else:
+            p = self._repo.relpath(what)
+            is_commit = False
         p = self._adjust_lines(p)
-        return p
+        return p, is_commit
 
 
 class BitBucket(Resolver):
 
     URL_FMT = 'https://bitbucket.org/{user}/{repo}'
     BLOB_FMT = '/src/{changeset}/{path}?at={branch}'
+    COMMIT_FMT = '/commits/{commit}'
 
     @staticmethod
     def can_resolve(origin):
@@ -236,8 +259,10 @@ class BitBucket(Resolver):
 
     def resolve(self, what):
         url = self.URL_FMT.format(user=self.user, repo=self.repo)
-        p, lines = self.get_path(what)
-        if p:
+        (p, lines), is_commit = self.get_path(what)
+        if is_commit:
+            url += self.COMMIT_FMT.format(commit=p)
+        else:
             url += self.BLOB_FMT.format(
                 changeset=self._repo.changeset,
                 branch=self._repo.branch, path=p)
@@ -265,14 +290,20 @@ class BitBucket(Resolver):
         return p, ''
 
     def get_path(self, what):
-        p = what[len(self._repo.toplevel):].lstrip('/')
-        return self._split_lines(p)
+        if self._repo.is_commit(what):
+            p = what
+            is_commit = True
+        else:
+            p = self._repo.relpath(what)
+            is_commit = False
+        p = self._split_lines(p)
+        return p, is_commit
 
 
 class Kiln(Resolver):
 
     URL_FMT = (
-        'https://{user}.kilnhg.com/Code/{repo}/Files/{path}'
+        'https://{user}.kilnhg.com/Code/{repo}/{path}'
         '?rev={branch}'
     )
 
@@ -302,7 +333,10 @@ class Kiln(Resolver):
         return p, ''
 
     def get_path(self, what):
-        p = what[len(self._repo.toplevel):].lstrip('/')
+        if self._repo.is_commit(what):
+            p = 'History/{}'.format(what)
+        else:
+            p = 'Files/{}'.format(self._repo.relpath(what))
         return self._split_lines(p)
 
     def resolve(self, what):
@@ -313,7 +347,8 @@ class Kiln(Resolver):
 
 
 def xdg_open(url):
-    check_call(['xdg-open', url])
+    # Discard output
+    _output = check_output(['xdg-open', url], stderr=STDOUT)
 
 
 def save_x_clipboard(stuff):
@@ -328,7 +363,7 @@ def main():
     repo = Repo.get(what)
     url = repo.resolve()
     xdg_open(url)
-    # TODO This hangs Emacs
+    # TODO command arg to save to clipboard
     # save_x_clipboard(url)
     print(url)
 
