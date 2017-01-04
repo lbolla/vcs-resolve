@@ -332,11 +332,23 @@ class Kiln(Resolver):
             return p[:idx], p[idx:].replace(':', '#').replace(',', '-')
         return p, ''
 
+    @staticmethod
+    def _rewrite_hidden_segments(p):
+        '''Kiln uses IIS that does not allow "hidden segments".'''
+        hidden_segments = {'bin'}
+        tokens = []
+        for t in p.split('/'):
+            if t.strip() in hidden_segments:
+                t = '%24{}%24'.format(t)
+            tokens.append(t)
+        return '/'.join(tokens)
+
     def get_path(self, what):
         if self._repo.is_commit(what):
             p = 'History/{}'.format(what)
         else:
             p = 'Files/{}'.format(self._repo.relpath(what))
+            p = self._rewrite_hidden_segments(p)
         return self._split_lines(p)
 
     def resolve(self, what):
