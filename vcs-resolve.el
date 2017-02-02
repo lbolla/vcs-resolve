@@ -21,4 +21,9 @@
                   ","
                   (number-to-string (- (line-number-at-pos (region-end)) 1)))))
 
+(defun vcs-resolve-at-point ()
+  "Run `vcs-resolve` on word at point."
+  (interactive)
+  (shell-command (concat vcs-resolve-exe " " (thing-at-point 'word))))
+
 ;;; vcs-resolve.el ends here

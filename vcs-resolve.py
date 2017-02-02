@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 class Repo(metaclass=abc.ABCMeta):
 
-    COMMIT_RE = re.compile(r'[a-z0-9]{16}')
+    COMMIT_RE = re.compile(r'[a-z0-9]{8,}')
 
     def __init__(self, what):
         self.what = what
@@ -91,11 +91,7 @@ class Git(Repo):
 
     @property
     def branch(self):
-        output = self._git('branch')
-        for line in output.splitlines():
-            if line.startswith('*'):
-                return line[2:].strip()
-        raise ValueError('Branch not found: {}'.format(output))
+        return self._git('rev-parse --abbrev-ref HEAD')
 
     @property
     def origin(self):
