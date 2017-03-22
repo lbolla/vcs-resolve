@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 class Repo(metaclass=abc.ABCMeta):
 
-    COMMIT_RE = re.compile(r'[a-z0-9]{8,}')
+    COMMIT_RE = re.compile(r'[a-z0-9]{7,}')
 
     def __init__(self, what):
         self.what = what
