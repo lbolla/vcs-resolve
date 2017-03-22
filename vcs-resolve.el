@@ -9,21 +9,28 @@
 (defun vcs-resolve-buffer ()
   "Run `vcs-resolve` on current buffer."
   (interactive)
-  (shell-command (concat vcs-resolve-exe " " (or (buffer-file-name) default-directory))))
+  (vcs-resolve--exec (or (buffer-file-name) default-directory)))
 
 (defun vcs-resolve-region ()
   "Run `vcs-resolve` on current region."
   (interactive)
-  (shell-command (concat
-                  vcs-resolve-exe " " (buffer-file-name)
-                  ":"
-                  (number-to-string (line-number-at-pos (region-beginning)))
-                  ","
-                  (number-to-string (- (line-number-at-pos (region-end)) 1)))))
+  (vcs-resolve--exec (concat
+                      (buffer-file-name)
+                      ":"
+                      (number-to-string (line-number-at-pos (region-beginning)))
+                      ","
+                      (number-to-string (- (line-number-at-pos (region-end)) 1)))))
 
 (defun vcs-resolve-at-point ()
   "Run `vcs-resolve` on word at point."
   (interactive)
-  (shell-command (concat vcs-resolve-exe " " (thing-at-point 'word))))
+  (vcs-resolve--exec (thing-at-point 'word)))
+
+(defun vcs-resolve--exec (what)
+  "Execute `vcs-resolve WHAT` and copy return string to kill ring."
+  (let* ((out (shell-command-to-string (concat vcs-resolve-exe " " what)))
+         (url (car (split-string out))))
+    (kill-new url)
+    (message url)))
 
 ;;; vcs-resolve.el ends here
