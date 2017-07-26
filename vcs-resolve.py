@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 class Repo(metaclass=abc.ABCMeta):
 
-    COMMIT_RE = re.compile(r'[a-z0-9]{7,}')
+    COMMIT_RE = re.compile(r'[a-f0-9]{7,}')
 
     def __init__(self, what):
         self.what = what
@@ -161,34 +161,36 @@ class Resolver(metaclass=abc.ABCMeta):
     @staticmethod
     def get(repo):
         origin = repo.origin
-        for cls in [GitHub, BitBucket, Kiln]:
+        for cls in [GitHub, BitBucket, Kiln, YGGitLab]:
             if cls.can_resolve(origin):
                 return cls(repo)
 
         raise ValueError('Unknown resolver: {}'.format(origin))
 
 
-class GitHub(Resolver):
+class GitResolver(Resolver):
 
-    URL_FMT = 'https://github.com/{user}/{repo}'
+    HOSTNAME = None
+    URL_FMT = 'https://{hostname}/{user}/{repo}'
     BLOB_FMT = '/blob/{branch}/{path}'
     COMMIT_FMT = '/commit/{commit}'
 
-    @staticmethod
-    def can_resolve(origin):
-        if origin.scheme in ['github', 'gh']:
+    @classmethod
+    def can_resolve(cls, origin):
+        if cls.HOSTNAME in origin.scheme:
             return True
 
-        if 'github.com' in origin.netloc:
+        if cls.HOSTNAME in origin.netloc:
             return True
 
-        if 'github.com' in origin.path:
+        if cls.HOSTNAME in origin.path:
             return True
 
         return False
 
     def resolve(self, what):
-        url = self.URL_FMT.format(user=self.user, repo=self.repo)
+        url = self.URL_FMT.format(
+            hostname=self.HOSTNAME, user=self.user, repo=self.repo)
         p, is_commit = self.get_path(what)
         if is_commit:
             url += self.COMMIT_FMT.format(commit=p)
@@ -201,7 +203,7 @@ class GitHub(Resolver):
         origin = self._repo.origin.path
         if origin.endswith('.git'):
             origin = origin[:-4]
-        if 'github.com:' in origin:
+        if self.HOSTNAME + ':' in origin:
             origin = origin.split(':', 1)[-1]
         return origin
 
@@ -232,6 +234,16 @@ class GitHub(Resolver):
             is_commit = False
         p = self._adjust_lines(p)
         return p, is_commit
+
+
+class GitHub(GitResolver):
+
+    HOSTNAME = 'github.com'
+
+
+class YGGitLab(GitResolver):
+
+    HOSTNAME = 'gitlab.yougov.net'
 
 
 class BitBucket(Resolver):
