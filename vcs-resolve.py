@@ -175,6 +175,9 @@ class GitResolver(Resolver):
     BLOB_FMT = '/blob/{branch}/{path}'
     COMMIT_FMT = '/commit/{commit}'
 
+    LINE_SEP_FROM = '#L'
+    LINE_SEP_TO = '-L'
+
     @classmethod
     def can_resolve(cls, origin):
         if cls.HOSTNAME in origin.scheme:
@@ -215,13 +218,16 @@ class GitResolver(Resolver):
     def repo(self):
         return self.repo_path.strip('/').split('/')[1]
 
-    @staticmethod
-    def _adjust_lines(p):
+    def _adjust_lines(self, p):
         if ':' in p:
             idx = p.index(':')
             p = ''.join([
                 p[:idx],
-                p[idx:].replace(':', '#L').replace(',', '-L')
+                p[idx:].replace(
+                    ':', self.LINE_SEP_FROM
+                ).replace(
+                    ',', self.LINE_SEP_TO
+                )
             ])
         return p
 
@@ -244,6 +250,7 @@ class GitHub(GitResolver):
 class YGGitLab(GitResolver):
 
     HOSTNAME = 'gitlab.yougov.net'
+    LINE_SEP_TO = '-'
 
 
 class BitBucket(Resolver):
