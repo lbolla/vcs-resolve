@@ -216,7 +216,7 @@ class GitResolver(Resolver):
 
     @property
     def repo(self):
-        return self.repo_path.strip('/').split('/')[1]
+        return self.repo_path.strip('/').split('/', 1)[1]
 
     def _adjust_lines(self, p):
         if ':' in p:
