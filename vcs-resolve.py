@@ -91,7 +91,14 @@ class Git(Repo):
 
     @property
     def branch(self):
-        return self._git('rev-parse --abbrev-ref HEAD')
+        try:
+            # Try to get the remote branch first
+            remote = self._git('rev-parse --abbrev-ref @{u}')
+            return remote.split('/')[-1]
+        except Exception:
+            # Fall back to the local branch name, although this is
+            # pretty useless
+            return self._git('rev-parse --abbrev-ref @')
 
     @property
     def origin(self):
