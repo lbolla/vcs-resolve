@@ -6,11 +6,13 @@
 
 (defcustom vcs-resolve-exe "vcs-resolve" "Executable for vcs-resolve." :group 'local)
 
+;;;###autoload
 (defun vcs-resolve-buffer ()
   "Run `vcs-resolve` on current buffer."
   (interactive)
   (vcs-resolve--exec (or (buffer-file-name) default-directory)))
 
+;;;###autoload
 (defun vcs-resolve-region ()
   "Run `vcs-resolve` on current region."
   (interactive)
@@ -21,6 +23,7 @@
                       ","
                       (number-to-string (- (line-number-at-pos (region-end)) 1)))))
 
+;;;###autoload
 (defun vcs-resolve-at-point ()
   "Run `vcs-resolve` on word at point."
   (interactive)
