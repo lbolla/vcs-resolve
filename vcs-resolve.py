@@ -82,7 +82,7 @@ class Git(Repo):
         try:
             Git._git('status')
             return True
-        except CalledProcessError:
+        except (CalledProcessError, FileNotFoundError):
             return False
 
     @property
@@ -125,7 +125,7 @@ class Hg(Repo):
         try:
             Hg._hg('status')
             return True
-        except CalledProcessError:
+        except (CalledProcessError, FileNotFoundError):
             return False
 
     @property
