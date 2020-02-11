@@ -36,4 +36,5 @@
     (kill-new url)
     (message url)))
 
+(provide 'vcs-resolve)
 ;;; vcs-resolve.el ends here
