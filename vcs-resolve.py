@@ -298,15 +298,6 @@ class BitResolver(Resolver):
             git_repo = git_repo[:-4]
         return git_repo
 
-    @staticmethod
-    def _split_lines(p):
-        if ':' in p:
-            idx = p.index(':')
-            fname = os.path.basename(p[:idx])
-            return p[:idx], p[idx:].replace(
-                ':', '#' + fname + '-').replace(',', ':')
-        return p, ''
-
     def get_path(self, what):
         if self._repo.is_commit(what):
             p = what
@@ -336,6 +327,15 @@ class BitBucket(BitResolver):
                 branch=self._repo.branch, path=p)
         return url + lines
 
+    @staticmethod
+    def _split_lines(p):
+        if ':' in p:
+            idx = p.index(':')
+            fname = os.path.basename(p[:idx])
+            return p[:idx], p[idx:].replace(
+                ':', '#' + fname + '-').replace(',', ':')
+        return p, ''
+
 
 class RocheBitBucket(BitResolver):
     HOSTNAME = 'bitbucket.roche.com'
@@ -357,6 +357,14 @@ class RocheBitBucket(BitResolver):
     @property
     def user(self):
         return self.repo_path.strip('/').strip('~').split('/')[0]
+
+    @staticmethod
+    def _split_lines(p):
+        if ':' in p:
+            idx = p.index(':')
+            fname = os.path.basename(p[:idx])
+            return p[:idx], p[idx:].replace(':', '#').replace(',', '-')
+        return p, ''
 
 
 class Kiln(Resolver):
