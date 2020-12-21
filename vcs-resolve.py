@@ -168,7 +168,7 @@ class Resolver(metaclass=abc.ABCMeta):
     @staticmethod
     def get(repo):
         origin = repo.origin
-        for cls in [GitHub, BitBucket, Kiln, YGGitLab]:
+        for cls in [GitHub, BitBucket, Kiln, YGGitLab, RocheBitBucket]:
             if cls.can_resolve(origin):
                 return cls(repo)
 
@@ -260,35 +260,28 @@ class YGGitLab(GitResolver):
     LINE_SEP_TO = '-'
 
 
-class BitBucket(Resolver):
+class BitResolver(Resolver):
 
-    URL_FMT = 'https://bitbucket.org/{user}/{repo}'
-    BLOB_FMT = '/src/{changeset}/{path}?at={branch}'
-    COMMIT_FMT = '/commits/{commit}'
+    HOSTNAME = None
+    URL_FMT = None
+    BLOB_FMT = None
+    COMMIT_FMT = None
 
-    @staticmethod
-    def can_resolve(origin):
+    @classmethod
+    def can_resolve(cls, origin):
         if origin.scheme in ['bitbucket', 'bb']:
             return True
 
-        if 'bitbucket.org' in origin.netloc:
+        if cls.HOSTNAME in origin.scheme:
             return True
 
-        if 'bitbucket.org' in origin.path:
+        if cls.HOSTNAME in origin.netloc:
+            return True
+
+        if cls.HOSTNAME in origin.path:
             return True
 
         return False
-
-    def resolve(self, what):
-        url = self.URL_FMT.format(user=self.user, repo=self.repo)
-        (p, lines), is_commit = self.get_path(what)
-        if is_commit:
-            url += self.COMMIT_FMT.format(commit=p)
-        else:
-            url += self.BLOB_FMT.format(
-                changeset=self._repo.changeset,
-                branch=self._repo.branch, path=p)
-        return url + lines
 
     @property
     def repo_path(self):
@@ -300,7 +293,10 @@ class BitBucket(Resolver):
 
     @property
     def repo(self):
-        return self.repo_path.strip('/').split('/')[1]
+        git_repo = self.repo_path.strip('/').split('/')[1]
+        if git_repo.endswith('.git'):
+            git_repo = git_repo[:-4]
+        return git_repo
 
     @staticmethod
     def _split_lines(p):
@@ -320,6 +316,47 @@ class BitBucket(Resolver):
             is_commit = False
         p = self._split_lines(p)
         return p, is_commit
+
+
+class BitBucket(BitResolver):
+    HOSTNAME = 'bitbucket.org'
+    URL_FMT = 'https://{hostname}/{user}/{repo}'
+    BLOB_FMT = '/src/{changeset}/{path}?at={branch}'
+    COMMIT_FMT = '/commits/{commit}'
+
+    def resolve(self, what):
+        url = self.URL_FMT.format(
+            hostname=self.HOSTNAME, user=self.user, repo=self.repo)
+        (p, lines), is_commit = self.get_path(what)
+        if is_commit:
+            url += self.COMMIT_FMT.format(commit=p)
+        else:
+            url += self.BLOB_FMT.format(
+                changeset=self._repo.changeset,
+                branch=self._repo.branch, path=p)
+        return url + lines
+
+
+class RocheBitBucket(BitResolver):
+    HOSTNAME = 'bitbucket.roche.com'
+    URL_FMT = 'https://{hostname}/stash/users/{user}/repos/{repo}'
+    BLOB_FMT = '/browse/{path}?at={branch}'
+    COMMIT_FMT = '/commits/{commit}'
+
+    def resolve(self, what):
+        url = self.URL_FMT.format(
+            hostname=self.HOSTNAME, user=self.user, repo=self.repo)
+        (p, lines), is_commit = self.get_path(what)
+        if is_commit:
+            url += self.COMMIT_FMT.format(commit=p)
+        else:
+            url += self.BLOB_FMT.format(
+                branch=self._repo.branch, path=p)
+        return url + lines
+
+    @property
+    def user(self):
+        return self.repo_path.strip('/').strip('~').split('/')[0]
 
 
 class Kiln(Resolver):
