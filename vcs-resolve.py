@@ -339,13 +339,14 @@ class BitBucket(BitResolver):
 
 class RocheBitBucket(BitResolver):
     HOSTNAME = 'bitbucket.roche.com'
-    URL_FMT = 'https://{hostname}/stash/users/{user}/repos/{repo}'
+    URL_FMT = 'https://{hostname}/stash/{repo_type}/{user}/repos/{repo}'
     BLOB_FMT = '/browse/{path}?at={branch}'
     COMMIT_FMT = '/commits/{commit}'
 
     def resolve(self, what):
         url = self.URL_FMT.format(
-            hostname=self.HOSTNAME, user=self.user, repo=self.repo)
+            hostname=self.HOSTNAME, user=self.user, repo=self.repo,
+            repo_type=self.repo_type)
         (p, lines), is_commit = self.get_path(what)
         if is_commit:
             url += self.COMMIT_FMT.format(commit=p)
@@ -357,6 +358,13 @@ class RocheBitBucket(BitResolver):
     @property
     def user(self):
         return self.repo_path.strip('/').strip('~').split('/')[0]
+
+    @property
+    def repo_type(self):
+        path = self.repo_path.strip('/')
+        if path.startswith('~'):
+            return 'users'
+        return 'projects'
 
     @staticmethod
     def _split_lines(p):
