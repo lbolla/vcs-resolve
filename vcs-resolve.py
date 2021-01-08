@@ -168,7 +168,12 @@ class Resolver(metaclass=abc.ABCMeta):
     @staticmethod
     def get(repo):
         origin = repo.origin
-        for cls in [GitHub, BitBucket, Kiln, YGGitLab, RocheBitBucket]:
+        for cls in [
+                GitHub, BitBucket,
+                Kiln, YGGitLab,
+                RocheBitBucket,
+                RocheGitLab,
+        ]:
             if cls.can_resolve(origin):
                 return cls(repo)
 
@@ -373,6 +378,21 @@ class RocheBitBucket(BitResolver):
             fname = os.path.basename(p[:idx])
             return p[:idx], p[idx:].replace(':', '#').replace(',', '-')
         return p, ''
+
+
+class RocheGitLab(GitResolver):
+
+    HOSTNAME = 'code.roche.com'
+    LINE_SEP_TO = '-'
+
+    @property
+    def repo_path(self):
+        origin = self._repo.origin.path
+        if origin.endswith('.git'):
+            origin = origin[:-4]
+        if self.HOSTNAME + ':' in origin:
+            origin = origin.split(':', 1)[-1]
+        return origin
 
 
 class Kiln(Resolver):
