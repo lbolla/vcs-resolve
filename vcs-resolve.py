@@ -173,6 +173,7 @@ class Resolver(metaclass=abc.ABCMeta):
                 Kiln, YGGitLab,
                 RocheBitBucket,
                 RocheGitLab,
+                RocheTFS,
         ]:
             if cls.can_resolve(origin):
                 return cls(repo)
@@ -384,6 +385,22 @@ class RocheGitLab(GitResolver):
 
     HOSTNAME = 'code.roche.com'
     LINE_SEP_TO = '-'
+
+    @property
+    def repo_path(self):
+        origin = self._repo.origin.path
+        if origin.endswith('.git'):
+            origin = origin[:-4]
+        if self.HOSTNAME + ':' in origin:
+            origin = origin.split(':', 1)[-1]
+        return origin
+
+
+class RocheTFS(GitResolver):
+
+    HOSTNAME = 'tfsprod.emea.roche.com'
+    LINE_SEP_TO = '-'
+    BLOB_FMT = '?path={path}&version=GB{branch}'
 
     @property
     def repo_path(self):

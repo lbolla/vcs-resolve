@@ -16,12 +16,14 @@
 (defun vcs-resolve-region ()
   "Run `vcs-resolve` on current region."
   (interactive)
-  (vcs-resolve--exec (concat
-                      (buffer-file-name)
-                      ":"
-                      (number-to-string (line-number-at-pos (region-beginning)))
-                      ","
-                      (number-to-string (- (line-number-at-pos (region-end)) 1)))))
+  (let ((uri (concat
+              (buffer-file-name)
+              ":"
+              (number-to-string (line-number-at-pos (region-beginning)))
+              ","
+              (number-to-string (- (line-number-at-pos (region-end)) 1)))))
+    (message uri)
+    (vcs-resolve--exec uri)))
 
 ;;;###autoload
 (defun vcs-resolve-at-point ()
