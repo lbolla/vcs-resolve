@@ -29,7 +29,10 @@
 (defun vcs-resolve-at-point ()
   "Run `vcs-resolve` on word at point."
   (interactive)
-  (vcs-resolve--exec (thing-at-point 'word)))
+  (cond ((eq major-mode 'dired-mode)
+         (vcs-resolve--exec (concat (dired-current-directory) (thing-at-point 'filename))))
+        (t
+         (vcs-resolve--exec (thing-at-point 'word)))))
 
 (defun vcs-resolve--exec (what)
   "Execute `vcs-resolve WHAT` and copy return string to kill ring."
