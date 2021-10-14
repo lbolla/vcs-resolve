@@ -155,6 +155,8 @@ class Hg(Repo):
 
 class Resolver(metaclass=abc.ABCMeta):
 
+    LINE_SEP = True
+
     def __init__(self, repo):
         self._repo = repo
 
@@ -236,14 +238,17 @@ class GitResolver(Resolver):
     def _adjust_lines(self, p):
         if ':' in p:
             idx = p.index(':')
-            p = ''.join([
-                p[:idx],
-                p[idx:].replace(
-                    ':', self.LINE_SEP_FROM
-                ).replace(
-                    ',', self.LINE_SEP_TO
-                )
-            ])
+            if self.LINE_SEP:
+                p = ''.join([
+                    p[:idx],
+                    p[idx:].replace(
+                        ':', self.LINE_SEP_FROM
+                    ).replace(
+                        ',', self.LINE_SEP_TO
+                    )
+                ])
+            else:
+                p = p[:idx]
         return p
 
     def get_path(self, what):
@@ -401,7 +406,7 @@ class RocheGitLab(GitResolver):
 class RocheTFS(GitResolver):
 
     HOSTNAME = 'tfsprod.emea.roche.com'
-    LINE_SEP_TO = '-'
+    LINE_SEP = False
     BLOB_FMT = '?path={path}&version=GB{branch}'
 
     @property
