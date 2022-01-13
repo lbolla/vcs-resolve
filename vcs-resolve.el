@@ -7,6 +7,16 @@
 (defcustom vcs-resolve-exe "vcs-resolve" "Executable for vcs-resolve." :group 'local)
 
 ;;;###autoload
+(defun vcs-resolve-dwim ()
+  "Try to guess the best way to run `vcs-resolve`."
+  (interactive)
+  (cond
+   ((region-active-p)
+    (vcs-resolve-region))
+   (t
+    (vcs-resolve-at-point))))
+
+;;;###autoload
 (defun vcs-resolve-buffer ()
   "Run `vcs-resolve` on current buffer."
   (interactive)
@@ -31,8 +41,10 @@
   (interactive)
   (cond ((eq major-mode 'dired-mode)
          (vcs-resolve--exec (concat (dired-current-directory) (thing-at-point 'filename))))
+        ((string-match (rx bos (>= 6 (any "A-Fa-f0-9")) eos) (thing-at-point 'word))
+         (vcs-resolve--exec (thing-at-point 'word)))
         (t
-         (vcs-resolve--exec (thing-at-point 'word)))))
+         (vcs-resolve-buffer))))
 
 (defun vcs-resolve--exec (what)
   "Execute `vcs-resolve WHAT` and copy return string to kill ring."
