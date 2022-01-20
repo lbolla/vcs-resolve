@@ -48,10 +48,10 @@
 
 (defun vcs-resolve--exec (what)
   "Execute `vcs-resolve WHAT` and copy return string to kill ring."
-  (let* ((out (shell-command-to-string (concat vcs-resolve-exe " " what)))
+  (let* ((out (shell-command-to-string (format "%s '%s'" vcs-resolve-exe what)))
          (url (car (split-string out))))
     (kill-new url)
-    (message url)))
+    (message "%s" url)))
 
 (provide 'vcs-resolve)
 ;;; vcs-resolve.el ends here

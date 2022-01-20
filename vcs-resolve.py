@@ -5,7 +5,7 @@ import re
 from subprocess import check_call, check_output, CalledProcessError, STDOUT
 import sys
 import tempfile
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 
 class Repo(metaclass=abc.ABCMeta):
@@ -215,7 +215,7 @@ class GitResolver(Resolver):
         if is_commit:
             url += self.COMMIT_FMT.format(commit=p)
         elif p:
-            url += self.BLOB_FMT.format(branch=self._repo.branch, path=p)
+            url += self.BLOB_FMT.format(branch=self._repo.branch, path=quote(p))
         return url
 
     @property
@@ -365,7 +365,7 @@ class RocheBitBucket(BitResolver):
             url += self.COMMIT_FMT.format(commit=p)
         else:
             url += self.BLOB_FMT.format(
-                branch=self._repo.branch, path=p)
+                branch=self._repo.branch, path=quote(p))
         return url + lines
 
     @property
@@ -474,7 +474,7 @@ class Kiln(Resolver):
         p, lines = self.get_path(what)
         return self.URL_FMT.format(
             user=self.user, repo=self.repo, branch=self._repo.branch,
-            path=p) + lines
+            path=quote(p)) + lines
 
 
 def xdg_open(url):
