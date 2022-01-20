@@ -40,7 +40,7 @@
   "Run `vcs-resolve` on word at point."
   (interactive)
   (cond ((eq major-mode 'dired-mode)
-         (vcs-resolve--exec (concat (dired-current-directory) (or (thing-at-point 'filename) ""))))
+         (vcs-resolve--exec (concat default-directory (or (dired-get-filename t t) ""))))
         ((string-match (rx bos (>= 6 (any "A-Fa-f0-9")) eos) (or (thing-at-point 'word) ""))
          (vcs-resolve--exec (thing-at-point 'word)))
         (t
